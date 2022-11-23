@@ -110,6 +110,9 @@ unsigned char *fast_rescaleImage(unsigned char *src, int src_x, int src_y, int d
 unsigned char *vanilla_rescaleImage(unsigned char *src, int src_x, int src_y, int dest_x, int dest_y);
 void getPixel(unsigned char *image, int x, int y, int sx, unsigned char *R, unsigned char *G, unsigned char *B);
 void setPixel(unsigned char *image, int x, int y, int sx, unsigned char R, unsigned char G, unsigned char B);
+void getPixelF(unsigned char *image, int x, int y, int sx, unsigned char *R, unsigned char *G, unsigned char *B);
+void setPixelF(unsigned char *image, int x, int y, int sx, unsigned char R, unsigned char G, unsigned char B);
+void getPixels(unsigned char *image, int x, int y, int sx, u_int64_t *p);
 int main(int argc, char *argv[]);
 unsigned char *readPPMimage(const char *filename, int *sx, int *sy);
 void imageOutput(unsigned char *im, int sx, int sy, const char *name);
@@ -142,7 +145,96 @@ void imageOutput(unsigned char *im, int sx, int sy, const char *name);
 
 unsigned char *fast_rescaleImage(unsigned char *src, int src_x, int src_y, int dest_x, int dest_y)
 {
- return(NULL);		// Comment out, and write your fast routine here!
+ double step_x,step_y;			// Step increase as per instructions above
+ double fx=0,fy=0;				// Corresponding coordinates on source image
+ int floor_fx, floor_fy; // Floored versions of above
+ double ceil_fx, ceil_fy; 
+ u_int64_t dx,dy;				// Fractional component of source image coordinates
+ unsigned char R1,G1,B1,R2,G2,B2,R3,G3,B3,R4,G4,B4;		// Colours at the four neighbours
+ u_int64_t top, bottom; // Top and bottom rows of pixels
+ // Above, the order is changed the way they are accessed from memory
+ u_int64_t RT1, GT1, BT1;			// Interpolated colours at T1 and T2
+ u_int64_t RT2, GT2, BT2;
+ unsigned char R,G,B;			// Final colour at a destination pixel
+ unsigned char *dst;			// Destination image - must be allocated here! 
+ double x,y;				// Coordinates on destination image
+
+
+ dst=(unsigned char *)calloc(dest_x*dest_y*3,sizeof(unsigned char));   // Allocate and clear destination image
+ if (!dst) return(NULL);					       // Unable to allocate image
+
+ step_x=(double)(src_x-1)/(double)(dest_x-1);
+ step_y=(double)(src_y-1)/(double)(dest_y-1);
+for (y=0;y<dest_y;y++)
+ for (x=0;x<dest_x;x++)			// Loop over destination image  
+  {
+   fx = x*step_x;
+   fy = y*step_y;
+   ceil_fx = ceil(fx);
+   ceil_fy = ceil(fy);
+   floor_fx = (int)fx;
+   floor_fy = (int)fy;
+   dx=fx-(int)fx;
+   dy=fy-(int)fy; 
+
+   getPixels(src,ceil_fx-1,ceil_fy-1,src_x,&top);
+   getPixels(src,ceil_fx-1, ceil_fy, src_x, &bottom);
+  
+   /*getPixel(src,ceil_fx-1,ceil_fy-1,src_x,&R1,&G1,&B1);	// get N1 colours
+   getPixel(src,ceil_fx,ceil_fy-1,src_x,&R2,&G2,&B2);	// get N2 colours
+   getPixel(src,ceil_fx-1,ceil_fy,src_x,&R3,&G3,&B3);	// get N3 colours
+   getPixel(src,ceil_fx,ceil_fy,src_x,&R4,&G4,&B4);	// get N4 colours*/
+   // Interpolate to get T1 and T2 colours
+   #define bitmask(pos) ((u_int64_t)0xF<<pos*8)
+   #define R1b (top&bitmask(0))
+   #define G1b (top&bitmask(1))
+   #define B1b (top&bitmask(2))
+   #define R2b (top&bitmask(3))
+   #define G2b (top&bitmask(4))
+   #define B2b (top&bitmask(5))
+   #define R3b (bottom&bitmask(0))
+   #define G3b (bottom&bitmask(1))
+   #define B3b (bottom&bitmask(2))
+   #define R4b (bottom&bitmask(3))
+   #define G4b (bottom&bitmask(4))
+   #define B4b (bottom&bitmask(5))
+
+   RT1=(dx*R2b)+(1-dx)*R1b;
+   GT1=(dx*G2b)+(1-dx)*G1b;
+   BT1=(dx*B2b)+(1-dx)*B1b;
+   RT2=(dx*R4b)+(1-dx)*R3b;
+   GT2=(dx*G4b)+(1-dx)*G3b;
+   BT2=(dx*B4b)+(1-dx)*B3b;
+   // Obtain final colour by interpolating between T1 and T2
+   R=(unsigned char)((dy*RT2)+((1-dy)*RT1));
+   G=(unsigned char)((dy*GT2)+((1-dy)*GT1));
+   B=(unsigned char)((dy*BT2)+((1-dy)*BT1));
+   // Store the final colour
+   setPixel(dst,x,y,dest_x,R,G,B);
+  }
+ return(dst);
+}
+
+void getPixelF(unsigned char *image, int x, int y, int sx, unsigned char *R, unsigned char *G, unsigned char *B)
+{
+ // Get the colour at pixel x,y in the image and return it using the provided RGB pointers
+ // Requires the image size along the x direction!
+ *(R)=*(image+((x+(y*sx))*3)+0);
+ *(G)=*(image+((x+(y*sx))*3)+1);
+ *(B)=*(image+((x+(y*sx))*3)+2);
+}
+
+void getPixels(unsigned char *image, int x, int y, int sx, u_int64_t *p) {
+  *p = *(u_int64_t*)(image+((x+(y*sx))*3));
+}
+
+void setPixelF(unsigned char *image, int x, int y, int sx, unsigned char R, unsigned char G, unsigned char B)
+{
+ // Set the colour of the pixel at x,y in the image to the specified R,G,B
+ // Requires the image size along the x direction!
+ *(image+((x+(y*sx))*3)+0)=R;
+ *(image+((x+(y*sx))*3)+1)=G;
+ *(image+((x+(y*sx))*3)+2)=B;
 }
 
 /*****************************************************
