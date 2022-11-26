@@ -150,11 +150,13 @@ int fast_ceil(double v) {
 unsigned char *fast_rescaleImage(unsigned char *src, int src_x, int src_y, int dest_x, int dest_y)
 {
  double step_x,step_y;			// Step increase as per instructions above
- double fx=0,fy=0;				// Corresponding coordinates on source image
+ double fx,fy;				// Corresponding coordinates on source image
  int floor_fx, floor_fy; // Floored versions of above
- double ceil_fx, ceil_fy; 
+ int ceil_fx, ceil_fy; 
  double dx,dy;				// Fractional component of source image coordinates
  unsigned char R1,G1,B1,R2,G2,B2,R3,G3,B3,R4,G4,B4;		// Colours at the four neighbours
+ unsigned char *p1, *p2; // Pixel pointers top row
+ double idx, idy;
  // Above, the order is changed the way they are accessed from memory
  double RT1, GT1, BT1;			// Interpolated colours at T1 and T2
  double RT2, GT2, BT2;
@@ -168,8 +170,10 @@ unsigned char *fast_rescaleImage(unsigned char *src, int src_x, int src_y, int d
 
  step_x=(double)(src_x-1)/(double)(dest_x-1);
  step_y=(double)(src_y-1)/(double)(dest_y-1);
-for (y=0;y<dest_y;y++)
- for (x=0;x<dest_x;x++)			// Loop over destination image  
+
+ for (y=0;y<dest_y;y++)
+  for (x=0;x<dest_x;x++) // Loop over destination image
+  // Inverted the loop order to loop over x, then y (how image is stored in memory)  
   {
    fx = x*step_x;
    fy = y*step_y;
@@ -177,31 +181,54 @@ for (y=0;y<dest_y;y++)
    floor_fy = (int)fy;
    ceil_fx = fast_ceil(fx);
    ceil_fy = fast_ceil(fy);
-   
    dx=fx-floor_fx;
-   dy=fy-floor_fy; 
-
-   //getPixels(src,floor_fx,floor_fy,src_x,&top);
-   //getPixels(src, floor_fx, ceil_fy, src_x, &bottom);
+   dy=fy-floor_fy;
+   idx=1-dx;
+   idy=1-dy;
    
-   getPixelF(src,floor_fx,floor_fy,src_x,&R1,&G1,&B1);	// get N1 colours
+   /*getPixelF(src,floor_fx,floor_fy,src_x,&R1,&G1,&B1);	// get N1 colours
    getPixelF(src,ceil_fx,floor_fy,src_x,&R2,&G2,&B2);	// get N2 colours
    getPixelF(src,floor_fx,ceil_fy,src_x,&R3,&G3,&B3);	// get N3 colours
    getPixelF(src,ceil_fx,ceil_fy,src_x,&R4,&G4,&B4);	// get N4 colours*/
    // Interpolate to get T1 and T2 colours
 
-   RT1=(dx*R2)+(1-dx)*R1;
-   GT1=(dx*G2)+(1-dx)*G1;
-   BT1=(dx*B2)+(1-dx)*B1;
-   RT2=(dx*R4)+(1-dx)*R3;
-   GT2=(dx*G4)+(1-dx)*G3;
-   BT2=(dx*B4)+(1-dx)*B3;
-   // Obtain final colour by interpolating between T1 and T2
-   R=(unsigned char)((dy*RT2)+((1-dy)*RT1));
-   G=(unsigned char)((dy*GT2)+((1-dy)*GT1));
-   B=(unsigned char)((dy*BT2)+((1-dy)*BT1));
-   // Store the final colour
-   setPixelF(dst,x,y,dest_x,R,G,B);
+    #define img(x,y) src+((x+(y*src_x))*3)
+    #define dstimg(x,y) dst+((x+(y*dst_x))*3)
+
+    p1 = img(floor_fx, floor_fy); // Top half
+    p2 = img(ceil_fx, floor_fy);
+
+    R1 = *(p1+0);
+    R2 = *(p2+0);
+    G1 = *(p1+1);
+    G2 = *(p2+1);
+    B1 = *(p1+2);
+    B2 = *(p1+2);
+
+    RT1=idx*R1+(dx*R2);
+    GT1=idx*G1+(dx*G2);
+    BT1=idx*B1+(dx*B2);
+
+    p1 = img(floor_fx, ceil_fy); // Bottom half
+    p2 = img(ceil_fx, ceil_fy);
+
+    R3 = *(p1+0);
+    R4 = *(p2+0);
+    G3 = *(p1+1);
+    G4 = *(p2+1);
+    B3 = *(p1+2);
+    B4 = *(p1+2);
+
+    RT2=idx*R3+(dx*R4);
+    GT2=idx*G3+(dx*G4);
+    BT2=idx*B3+(dx*B4);
+
+    // Obtain final colour by interpolating between T1 and T2
+    R=(unsigned char)((dy*RT2)+(idy*RT1));
+    G=(unsigned char)((dy*GT2)+(idy*GT1));
+    B=(unsigned char)((dy*BT2)+(idy*BT1));
+    // Store the final colour
+    setPixelF(dst,x,y,dest_x,R,G,B);
   }
  return(dst);
 }
@@ -213,11 +240,6 @@ void getPixelF(unsigned char *image, int x, int y, int sx, unsigned char *R, uns
  *(R)=*(image+((x+(y*sx))*3)+0);
  *(G)=*(image+((x+(y*sx))*3)+1);
  *(B)=*(image+((x+(y*sx))*3)+2);
-}
-
-void getPixels(unsigned char *image, int x, int y, int sx, u_int64_t *p) {
-  *p = *(u_int64_t*)(image+((x+(y*sx))*3));
-  printf("casted %lu\n", *p);
 }
 
 void setPixelF(unsigned char *image, int x, int y, int sx, unsigned char R, unsigned char G, unsigned char B)

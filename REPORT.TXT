@@ -1,13 +1,13 @@
 CSC C85 - Code Optimization - 2021
 _______________________________________________________________________
 
-Team name:
+Team name: Choose the Napkin
 
-Name 1 (last, first):
-Student number 1:
+Name 1 (last, first): Malik, Faraz
+Student number 1: 1008009744
 
-Name 2 (last, first):
-Student number 2:
+Name 2 (last, first): Nasri, Noor
+Student number 2: 1007104036
 
 If applicable:
 Name 3 (last, first):
@@ -47,6 +47,24 @@ a) Look at the profiler output for vanilla_imageRescale(). Identify the
 	- The actual line of code
 	- The amount of time taken
 	(you can copy/paste from the profiler output)
+
+   1. getPixel(src,floor(fx),floor(fy),src_x,&R1,&G1,&B1); (Ir 1.55+0.7+3.94)
+   The line creates a bottleneck since it takes 1.55 instructions for casting floor output from double to int as the function requires,
+   and 0.7 for both floor calls, then 3.94 for the actual function execution which does a complex set of calculations to the image pointer before
+   assigning R, G, and B from memory. This is true for all 4 times it is called.
+
+   2. setPixel(dst,x,y,dest_x,R,G,B); (Ir 0.84+4.08)
+   This line takes 4.08 instructions to actually execute 3 writes to memory, then 0.84 instructions outside of the function call. I imagine the 0.84 instructions
+   aren't actual computations, but rather cache misses as almost all arguments have not been accessed for a while. setPixel also does the same thing as getPixel from a
+   performance standpoint, although some extra time might be due to the fact that this is the first time these specific bytes in dst are being written to
+
+   3. RT1=(dx*R2)+(1-dx)*R1; (Ir 1.12)
+   I think that majority of the time for this line is used for the implicit cast from unsigned char to double (R1 and R2). The reason I
+   think this line is improvable is that (1-dx) can be done beforehand and stored once (as this line is repeated 8 times). 
+
+   4. R=(unsigned char)((dy*RT2)+((1-dy)*RT1)); (Ir 0.63)
+   This line has to first do some double multiplication and addition, then a cast from double to unsigned char. Since casting is expensive, I think that the
+   cost of this line is split between the cast and computations.
 
    For each line, explain why the line creates a bottleneck (in terms
    of what you know about CPU architecture). I want specific reasons
