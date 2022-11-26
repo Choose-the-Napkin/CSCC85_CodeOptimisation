@@ -168,21 +168,21 @@ unsigned char *fast_rescaleImage(unsigned char *src, int src_x, int src_y, int d
  step_x=(double)(src_x-1)/(double)(dest_x-1);
  step_y=(double)(src_y-1)/(double)(dest_y-1);
 
- for (y=0;y<dest_y;y++)
+ for (y=0;y<dest_y;y++) {
+  fy = y*step_y;
+  floor_fy = (int)fy;
+  ceil_fy = fast_ceil(fy);
+  dy=fy-floor_fy;
+  idy=1-dy;
+  samey = ceil_fy != floor_fy;
   for (x=0;x<dest_x;x++) // Loop over destination image
   // Inverted the loop order to loop over x, then y (how image is stored in memory)  
   {
    fx = x*step_x;
-   fy = y*step_y;
    floor_fx = (int)fx;
-   floor_fy = (int)fy;
    ceil_fx = fast_ceil(fx);
-   ceil_fy = fast_ceil(fy);
    dx=fx-floor_fx;
-   dy=fy-floor_fy;
    idx=1-dx;
-   idy=1-dy;
-   samey = ceil_fx != floor_fx;
    //samex = ceil_fy != floor_fy;
    
    /*getPixelF(src,floor_fx,floor_fy,src_x,&R1,&G1,&B1);	// get N1 colours
@@ -199,13 +199,14 @@ unsigned char *fast_rescaleImage(unsigned char *src, int src_x, int src_y, int d
 
     R1 = *(p1+0);
     R2 = *(p2+0);
+    RT1=idx*R1+(dx*R2);
+
     G1 = *(p1+1);
     G2 = *(p2+1);
+    GT1=idx*G1+(dx*G2);
+
     B1 = *(p1+2);
     B2 = *(p1+2);
-
-    RT1=idx*R1+(dx*R2);
-    GT1=idx*G1+(dx*G2);
     BT1=idx*B1+(dx*B2);
 
     if (samey) { // Save recalculation of p1 and p2
@@ -221,14 +222,18 @@ unsigned char *fast_rescaleImage(unsigned char *src, int src_x, int src_y, int d
 
     R3 = *(p1+0);
     R4 = *(p2+0);
+    RT2=idx*R3+(dx*R4);
+
     G3 = *(p1+1);
     G4 = *(p2+1);
+    GT2=idx*G3+(dx*G4);
+
     B3 = *(p1+2);
     B4 = *(p1+2);
-
-    RT2=idx*R3+(dx*R4);
-    GT2=idx*G3+(dx*G4);
     BT2=idx*B3+(dx*B4);
+    
+    
+    
 
     // Obtain final colour by interpolating between T1 and T2
     p1 = dstimg(x,y);
@@ -237,7 +242,7 @@ unsigned char *fast_rescaleImage(unsigned char *src, int src_x, int src_y, int d
     *(p1+2) =(unsigned char)((dy*BT2)+(idy*BT1));
     // Store the final colour
     //setPixelF(dst,x,y,dest_x,R,G,B);
-  }
+  }}
  return(dst);
 }
 
