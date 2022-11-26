@@ -21,22 +21,22 @@ Questions:
 0) On the same computer, and with no other applications open:
 
    - Run vanilla version, compiled as per the compile script (no compiler
-     optimization) and list: Vanilla (no compiler opt) FPS = 
+     optimization) and list: Vanilla (no compiler opt) FPS = 9.6
      
    - Run your optimized code, compiled without compiler optimization
-     and list: Your Code (no compiler opt) FPS =
+     and list: Your Code (no compiler opt) FPS = 28.46666
 
    - Run vanilla code compiled with flag -O3 for compiler optimization
-     and list: Vanilla (compiler optimized) FPS =
+     and list: Vanilla (compiler optimized) FPS = 23.4666
      
    - Run your optimized code, compiled with flag -O3
-     and list: Your Code (compiler optimized) FPS =
+     and list: Your Code (compiler optimized) FPS = 71.4
      
      What is the ratio of your code (compiler optimized) to vanilla
      with no compiler optimization?
      
      Ratio = Vanilla(no compiler opt) FPS / Your code(compiler optimized) FPS
-           =
+           = 7.437^-1
      
 a) Look at the profiler output for vanilla_imageRescale(). Identify the
    lines that you think are un-necessary bottlenecks (i.e. lines whose
@@ -75,14 +75,35 @@ b) For each of the lines in a)
    Describe what you did in fast_imageRescale() to reduce/resolve the
    problem.
 
+   1. For floor and ceiling functions, make a faster alternative. Since the C floor and ceil functions are careful to factor 
+   both overflows and negative numbers (something we dont expect to happen), we can implement our own floors using integer casting. For ceil,
+   I just floor but add an amount that is almost one. This floor approximation is incorrect for a very small range of values, a range I also
+   do not expect to matter in this application.
+   My floor and ceil functions also return ints, to no casting required.
+   For actually getting, I precompute the pixel address in src so I dont have to do it 3 times. I also split my RAM queries into top and bottom, 
+   and do the top calculations in between, so when I actually get to bottom pixel calculations, the R3..G4 will be higher up in cache.
+   2. Similar to above, I also precompute the dstination pixel address.
+   3. Precompute 1-dx (idx)
+   4. Precompute 1-dy (idy)
+
    Explain why your improvement should work (again, based on what you
    know about CPU architecture).
 
 c) List any other optimizations you performed in your code and why they
    help increase speed
 
+   - Use samey to check if top 2 pixels are the same as bottom two pixels. If it is, we saved doing the second half of the calculations. If
+   not, the we only need to add srx_x to our previous pixel pointers to get the new pointers (as opposed to recalcualting of of x and y)
+
+   - Reordered the loop order so that we go column by column, then go down rows. This is the same way the image is stored im memory, to help with cacheing.
+   - Got rid of function calls, and only used macros so no stack stuff
+   - Moved y computations outside of the x loop, so only x stuff is computed every pixel
+
 d) Is there any part of the vanilla code that could not be optimized
    at all? if so, which?
+
+   - I could not find a faster way to read the values from memory. I experimented with casting src to an int_64 type then using bitmasks to
+   read individual bytes but I think the computational costs of the bitmasks would have outweighed the saved calls to memory.
    
 e) Now run your code with cache sim on. Identify the lines that you see
    causing cache misses, and for each of these please list:
@@ -90,15 +111,27 @@ e) Now run your code with cache sim on. Identify the lines that you see
     - The line of code
     - The number of cache misses it caused
     (you can copy/paste from the profiler output)
+
+   1.  RT1=idx*R1+(dx*R2) (4.43 D1mr);
+   I am not sure what is causing this miss. There is no branching before this, and idx, idx, dx, and dy
+   were written to pretty recently. This is a cache read miss, so I'm not sure what
+   else is being read for this instruction.
+
+   2. *p1 = (unsigned char)(RT1); (2.77 D1mw)
+   This is a write miss caused by writing to a location in memory that has not been written to ever. Since by
+   going in the order of how the pixels were stored guarantees a write to the previous byte last
+   loop iteration, I am not sure what is causing the write to miss.
     
    Describe any strategy you can come up with that may help reduce these
    cache misses.
 
 f) Do you think you have achieved close to optimal performance on this
-   code? (yes/no)
+   code? (yes/no) no
 
 g) If your answer to d) is no, what could you do to further increase
    performance?
+
+   Do 64 bit reads on memory and instead of using bitmasks loop and bit shift (I could not get that to work)
 
 ______________________________________________________________________
 
