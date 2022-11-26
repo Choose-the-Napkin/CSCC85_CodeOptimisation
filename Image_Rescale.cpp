@@ -110,9 +110,6 @@ unsigned char *fast_rescaleImage(unsigned char *src, int src_x, int src_y, int d
 unsigned char *vanilla_rescaleImage(unsigned char *src, int src_x, int src_y, int dest_x, int dest_y);
 void getPixel(unsigned char *image, int x, int y, int sx, unsigned char *R, unsigned char *G, unsigned char *B);
 void setPixel(unsigned char *image, int x, int y, int sx, unsigned char R, unsigned char G, unsigned char B);
-void getPixelF(unsigned char *image, int x, int y, int sx, unsigned char *R, unsigned char *G, unsigned char *B);
-void setPixelF(unsigned char *image, int x, int y, int sx, unsigned char R, unsigned char G, unsigned char B);
-void getPixels(unsigned char *image, int x, int y, int sx, u_int64_t *p);
 int main(int argc, char *argv[]);
 unsigned char *readPPMimage(const char *filename, int *sx, int *sy);
 void imageOutput(unsigned char *im, int sx, int sy, const char *name);
@@ -156,7 +153,7 @@ unsigned char *fast_rescaleImage(unsigned char *src, int src_x, int src_y, int d
  unsigned char R1,G1,B1,R2,G2,B2,R3,G3,B3,R4,G4,B4;		// Colours at the four neighbours
  unsigned char *p1, *p2; // Pixel pointers top row
  double idx, idy;
- int samey, samex;
+ int samey;
  // Above, the order is changed the way they are accessed from memory
  double RT1, GT1, BT1;			// Interpolated colours at T1 and T2
  double RT2, GT2, BT2;
@@ -185,6 +182,8 @@ unsigned char *fast_rescaleImage(unsigned char *src, int src_x, int src_y, int d
    dy=fy-floor_fy;
    idx=1-dx;
    idy=1-dy;
+   samey = ceil_fx != floor_fx;
+   //samex = ceil_fy != floor_fy;
    
    /*getPixelF(src,floor_fx,floor_fy,src_x,&R1,&G1,&B1);	// get N1 colours
    getPixelF(src,ceil_fx,floor_fy,src_x,&R2,&G2,&B2);	// get N2 colours
@@ -209,8 +208,16 @@ unsigned char *fast_rescaleImage(unsigned char *src, int src_x, int src_y, int d
     GT1=idx*G1+(dx*G2);
     BT1=idx*B1+(dx*B2);
 
-    p1 = img(floor_fx, ceil_fy); // Bottom half
-    p2 = img(ceil_fx, ceil_fy);
+    if (samey) { // Save recalculation of p1 and p2
+      p1 = dstimg(x,y);
+      *p1 = (unsigned char)(RT1);
+      *(p1+1) =(unsigned char)(GT1);
+      *(p1+2) =(unsigned char)(BT1);
+      continue;
+    }
+
+    p1 += src_x; // Bottom half
+    p2 += src_x; // Since they are not the same, floor_y + 1 = ceil_y
 
     R3 = *(p1+0);
     R4 = *(p2+0);
@@ -232,24 +239,6 @@ unsigned char *fast_rescaleImage(unsigned char *src, int src_x, int src_y, int d
     //setPixelF(dst,x,y,dest_x,R,G,B);
   }
  return(dst);
-}
-
-void getPixelF(unsigned char *image, int x, int y, int sx, unsigned char *R, unsigned char *G, unsigned char *B)
-{
- // Get the colour at pixel x,y in the image and return it using the provided RGB pointers
- // Requires the image size along the x direction!
- *(R)=*(image+((x+(y*sx))*3)+0);
- *(G)=*(image+((x+(y*sx))*3)+1);
- *(B)=*(image+((x+(y*sx))*3)+2);
-}
-
-void setPixelF(unsigned char *image, int x, int y, int sx, unsigned char R, unsigned char G, unsigned char B)
-{
- // Set the colour of the pixel at x,y in the image to the specified R,G,B
- // Requires the image size along the x direction!
- *(image+((x+(y*sx))*3)+0)=R;
- *(image+((x+(y*sx))*3)+1)=G;
- *(image+((x+(y*sx))*3)+2)=B;
 }
 
 /*****************************************************
