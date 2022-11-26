@@ -143,12 +143,11 @@ void imageOutput(unsigned char *im, int sx, int sy, const char *name);
 **    result.
 *****************************************************/
 
-int fast_ceil(double v) {
-  return (int)(v + 0.9999999);
-}
+#define fast_ceil(v) (int)(v + 0.9999999)
 
 unsigned char *fast_rescaleImage(unsigned char *src, int src_x, int src_y, int dest_x, int dest_y)
 {
+ int x,y;				// Coordinates on destination image
  double step_x,step_y;			// Step increase as per instructions above
  double fx,fy;				// Corresponding coordinates on source image
  int floor_fx, floor_fy; // Floored versions of above
@@ -157,12 +156,13 @@ unsigned char *fast_rescaleImage(unsigned char *src, int src_x, int src_y, int d
  unsigned char R1,G1,B1,R2,G2,B2,R3,G3,B3,R4,G4,B4;		// Colours at the four neighbours
  unsigned char *p1, *p2; // Pixel pointers top row
  double idx, idy;
+ int samey, samex;
  // Above, the order is changed the way they are accessed from memory
  double RT1, GT1, BT1;			// Interpolated colours at T1 and T2
  double RT2, GT2, BT2;
  unsigned char R,G,B;			// Final colour at a destination pixel
  unsigned char *dst;			// Destination image - must be allocated here! 
- double x,y;				// Coordinates on destination image
+ 
 
 
  dst=(unsigned char *)calloc(dest_x*dest_y*3,sizeof(unsigned char));   // Allocate and clear destination image
@@ -193,7 +193,7 @@ unsigned char *fast_rescaleImage(unsigned char *src, int src_x, int src_y, int d
    // Interpolate to get T1 and T2 colours
 
     #define img(x,y) src+((x+(y*src_x))*3)
-    #define dstimg(x,y) dst+((x+(y*dst_x))*3)
+    #define dstimg(a,b) dst+((a+(b*dest_x))*3)
 
     p1 = img(floor_fx, floor_fy); // Top half
     p2 = img(ceil_fx, floor_fy);
@@ -224,11 +224,12 @@ unsigned char *fast_rescaleImage(unsigned char *src, int src_x, int src_y, int d
     BT2=idx*B3+(dx*B4);
 
     // Obtain final colour by interpolating between T1 and T2
-    R=(unsigned char)((dy*RT2)+(idy*RT1));
-    G=(unsigned char)((dy*GT2)+(idy*GT1));
-    B=(unsigned char)((dy*BT2)+(idy*BT1));
+    p1 = dstimg(x,y);
+    *p1 = (unsigned char)((dy*RT2)+(idy*RT1));
+    *(p1+1) =(unsigned char)((dy*GT2)+(idy*GT1));
+    *(p1+2) =(unsigned char)((dy*BT2)+(idy*BT1));
     // Store the final colour
-    setPixelF(dst,x,y,dest_x,R,G,B);
+    //setPixelF(dst,x,y,dest_x,R,G,B);
   }
  return(dst);
 }
