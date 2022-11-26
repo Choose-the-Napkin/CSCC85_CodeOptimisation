@@ -153,13 +153,11 @@ unsigned char *fast_rescaleImage(unsigned char *src, int src_x, int src_y, int d
  double fx=0,fy=0;				// Corresponding coordinates on source image
  int floor_fx, floor_fy; // Floored versions of above
  double ceil_fx, ceil_fy; 
- u_int64_t dx,dy;				// Fractional component of source image coordinates
- u_int64_t top, bottom; // Top and bottom rows of pixels
- int samex, samey;
+ double dx,dy;				// Fractional component of source image coordinates
  unsigned char R1,G1,B1,R2,G2,B2,R3,G3,B3,R4,G4,B4;		// Colours at the four neighbours
  // Above, the order is changed the way they are accessed from memory
- u_int64_t RT1, GT1, BT1;			// Interpolated colours at T1 and T2
- u_int64_t RT2, GT2, BT2;
+ double RT1, GT1, BT1;			// Interpolated colours at T1 and T2
+ double RT2, GT2, BT2;
  unsigned char R,G,B;			// Final colour at a destination pixel
  unsigned char *dst;			// Destination image - must be allocated here! 
  double x,y;				// Coordinates on destination image
@@ -183,49 +181,27 @@ for (y=0;y<dest_y;y++)
    dx=fx-floor_fx;
    dy=fy-floor_fy; 
 
-   getPixels(src,floor_fx,floor_fy,src_x,&top);
-   getPixels(src, floor_fx, ceil_fy, src_x, &bottom);
-   /*
+   //getPixels(src,floor_fx,floor_fy,src_x,&top);
+   //getPixels(src, floor_fx, ceil_fy, src_x, &bottom);
+   
    getPixelF(src,floor_fx,floor_fy,src_x,&R1,&G1,&B1);	// get N1 colours
    getPixelF(src,ceil_fx,floor_fy,src_x,&R2,&G2,&B2);	// get N2 colours
    getPixelF(src,floor_fx,ceil_fy,src_x,&R3,&G3,&B3);	// get N3 colours
    getPixelF(src,ceil_fx,ceil_fy,src_x,&R4,&G4,&B4);	// get N4 colours*/
    // Interpolate to get T1 and T2 colours
 
-   samex = (floor_fx != ceil_fx)*3;
-
-   #define bitmask(pos) ((u_int64_t)0xF<<(pos)*8)
-   #define R1b ((top&bitmask(0))>>0*8)
-   #define G1b ((top&bitmask(1))>>1*8)
-   #define B1b ((top&bitmask(2))>>2*8)
-   #define R2b ((top&bitmask(0+samex))>>samex*8)
-   #define G2b ((top&bitmask(1+samex))>>(1+samex)*8)
-   #define B2b ((top&bitmask(2+samex))>>(2+samex)*8)
-   #define R3b ((bottom&bitmask(0))>>(0*8))
-   #define G3b ((bottom&bitmask(1))>>(1*8))
-   #define B3b ((bottom&bitmask(2))>>(2*8))
-   #define R4b ((bottom&bitmask(0+samex))>>(samex*8))
-   #define G4b ((bottom&bitmask(1+samex))>>(1+samex)*8)
-   #define B4b ((bottom&bitmask(2+samex))>>(2+samex)*8)
-
-   if (x == 0 && y == 0) {
-    //printf("%lu %lu %lu %lu\n", top, R1b, G1b, B1b);
-   }
-
-   RT1=(dx*R2b)+((u_int64_t)1-dx)*R1b;
-   //printf("%lu\n", RT1);
-   GT1=(dx*G2b)+((u_int64_t)1-dx)*G1b;
-   BT1=(dx*B2b)+((u_int64_t)1-dx)*B1b;
-   RT2=(dx*R4b)+((u_int64_t)1-dx)*R3b;
-   GT2=(dx*G4b)+((u_int64_t)1-dx)*G3b;
-   BT2=(dx*B4b)+((u_int64_t)1-dx)*B3b;
-   
+   RT1=(dx*R2)+(1-dx)*R1;
+   GT1=(dx*G2)+(1-dx)*G1;
+   BT1=(dx*B2)+(1-dx)*B1;
+   RT2=(dx*R4)+(1-dx)*R3;
+   GT2=(dx*G4)+(1-dx)*G3;
+   BT2=(dx*B4)+(1-dx)*B3;
    // Obtain final colour by interpolating between T1 and T2
-   R=(unsigned char)((dy*RT2)+(((u_int64_t)1-dy)*RT1));
-   G=(unsigned char)((dy*GT2)+(((u_int64_t)1-dy)*GT1));
-   B=(unsigned char)((dy*BT2)+(((u_int64_t)1-dy)*BT1));
+   R=(unsigned char)((dy*RT2)+((1-dy)*RT1));
+   G=(unsigned char)((dy*GT2)+((1-dy)*GT1));
+   B=(unsigned char)((dy*BT2)+((1-dy)*BT1));
    // Store the final colour
-   setPixel(dst,x,y,dest_x,R,G,B);
+   setPixelF(dst,x,y,dest_x,R,G,B);
   }
  return(dst);
 }
